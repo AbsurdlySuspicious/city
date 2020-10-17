@@ -6,26 +6,25 @@ use arrayvec::ArrayVec;
 pub type WHSize = (usize, usize);
 pub type PaletteColor = usize;
 
-type Tick = u64;
-const TICK_WRAP: Tick = Tick::MAX / 2;
+pub type Tick = u32;
+const TICK_WRAP: Tick = Tick::MAX / 4;
 
 #[derive(Debug)]
-pub struct City {
-    rng: Rng,
+pub struct City<'a> {
+    rng: &'a Rng,
     size: WHSize,
+    step: Tick,
     tick: Tick,
     background: PaletteColor,
-    layers_desc: Vec<LayerDesc>,
+    layers_desc: &'a [LayerDesc],
     layers: Vec<Layer>,
     canvas: Vec2D<PaletteColor>,
 }
 
 #[derive(Debug, Clone)]
 pub struct LayerDesc {
-    pub density: u32,
-    // 0 (max) .. 31 (min) .. >= 32 (no)
-    pub speed: u64,
-    // move each N ticks: 1 (faster) .. inf (slower)
+    pub density: u32, // 1 (min) .. 100 (max)
+    pub speed: Tick, // move each N ticks: 1 (faster) .. inf (slower)
     pub wall_color: PaletteColor,
     pub draw_windows: bool,
     pub window_colors: ArrayVec<[PaletteColor; 32]>,
@@ -43,18 +42,19 @@ struct Building {
     spawn_tick: Tick,
 }
 
-impl City {
+impl<'a> City<'a> {
     pub fn new(
         width: usize,
         height: usize,
-        rng: Rng,
+        step: Tick,
+        rng: &'a Rng,
         bg_color: PaletteColor,
-        layers: Vec<LayerDesc>,
-    ) -> City {
+        layers: &'a [LayerDesc],
+    ) -> City<'a> {
         City {
-            rng,
+            rng, step,
             size: (width, height),
-            tick: 0,
+            tick: 1,
             background: bg_color,
             canvas: Vec2D::new(width as usize, height as usize, || bg_color),
             layers: vec![Layer::default(); layers.len()],
@@ -62,14 +62,26 @@ impl City {
         }
     }
 
+    #[inline]
+    pub fn get_size(&self) -> WHSize {
+        self.size
+    }
+
+    #[inline]
+    pub fn get_tick(&self) -> Tick {
+        self.tick
+    }
+
+    #[inline]
     pub fn get_canvas(&self) -> &Vec2D<PaletteColor> {
         &self.canvas
     }
 
     pub fn next_tick(&mut self) {
-        let City { rng, size, tick: tick_ref, background, layers_desc, layers, canvas } = self;
+        let City { rng, size, tick: tick_ref, background, layers_desc, layers, canvas, step } = self;
         let (sx, sy) = *size;
         let mut tick = *tick_ref;
+        let step = *step;
 
         let bsz_minmax_w = (6, 25);
         let bsz_minmax_h = (10, sy + 2);
@@ -80,7 +92,7 @@ impl City {
         for (d, l) in layers_desc.iter().zip(layers.iter_mut()) {
             // spawn a new building on this layer
             // don't spawn if not moving on this tick && spawn decision
-            if d.speed % tick == 0 && rng.u32(..).leading_zeros() >= d.density {
+            if tick % d.speed == 0 && rng.u32(..100) < d.density {
                 let b = Building {
                     size_x: rng.usize(bsz_minmax_w.0..=bsz_minmax_w.1),
                     size_y: rng.usize(bsz_minmax_h.0..=bsz_minmax_h.1),
@@ -89,24 +101,32 @@ impl City {
                 l.ring.push_back(b)
             }
 
-            let mut trunc_front = 0;
-
             // draw buildings on canvas
-            for (i, b) in l.ring.iter().enumerate() {
+            let b_count = l.ring.len();
+            for _ in 0..b_count {
+                let b = match l.ring.pop_front() {
+                    Some(b) => b,
+                    None => break,
+                };
+
                 let mut wrap_tick = tick;
                 if b.spawn_tick > wrap_tick {
                     wrap_tick += TICK_WRAP;
                 }
 
-                if (b.spawn_tick + (b.size_x + sx) as Tick) * d.speed < wrap_tick {
-                    trunc_front = i; // mark buildings that can't be seen anymore
+                let (bsz_x, bsz_y) = (b.size_x, b.size_y);
+                let x = sx as i32 - ((wrap_tick - b.spawn_tick) * step / d.speed) as i32;
+                let (offset_x, x) = if x < 0 { (x.abs() as usize, 0) } else { (0, x as usize) };
+                let (offset_y, y) = if bsz_y > sy { (bsz_y - sy, 0) } else { (0, sy - bsz_y) };
+
+                if offset_x > bsz_x {
+                    continue; // don't requeue buildings that can't be seen anymore
                 }
 
-                let y = b.size_y as usize;
-                let x = sx as i32 - ((wrap_tick - b.spawn_tick) / d.speed) as i32;
-                let (offset_x, x) = if x < 0 { (x.abs() as usize, 0) } else { (0, x as usize) };
-                let (offset_y, y) = if y > sy { (y - sy, 0) } else { (0, sy - y) };
-                let (w, h) = (b.size_x - offset_x, b.size_y - offset_y);
+                let (w, h) = (bsz_x - offset_x, bsz_y - offset_y);
+                let (w, h) = (w.min(sx - x), h.min(sy));
+
+                l.ring.push_back(b);
 
                 for cy in y..y+h {
                     let row = canvas.get_row_mut(cy as usize);
@@ -115,17 +135,12 @@ impl City {
                     }
                 }
             }
-
-            // remove "expired" buildings
-            if trunc_front > 0 {
-                l.ring.drain(..trunc_front);
-            }
         }
 
         // next tick
         tick += 1;
         if tick > TICK_WRAP {
-            tick = 0;
+            tick = 1;
         }
         *tick_ref = tick;
     }

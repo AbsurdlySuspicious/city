@@ -34,8 +34,7 @@ impl<T> Vec2D<T> {
     }
 
     pub fn row_iter(&self) -> impl Iterator<Item=&[T]> {
-        let (sx, sy) = (self.size_x, self.size_y);
-        (0..sx * sy).step_by(sx).map(move |y| self.get_row(y))
+        (0..self.size_y).map(move |y| self.get_row(y))
     }
 }
 
