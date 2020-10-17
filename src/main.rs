@@ -56,24 +56,24 @@ fn main() {
     let bg_color = 107;
     let layers = vec![
         LayerDesc {
-            density: 35,
-            collision: 15,
+            density: 0.75,
+            collision: 0.35,
             speed: 4,
             wall_color: 47,
             draw_windows: false,
             window_colors: Default::default(),
         },
         LayerDesc {
-            density: 20,
-            collision: 5,
+            density: 0.6,
+            collision: 0.25,
             speed: 3,
             wall_color: 100,
             draw_windows: false,
             window_colors: Default::default(),
         },
         LayerDesc {
-            density: 12,
-            collision: 1,
+            density: 0.4,
+            collision: 0.2,
             speed: 1,
             wall_color: 40,
             draw_windows: false,

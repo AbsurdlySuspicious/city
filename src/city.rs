@@ -9,6 +9,7 @@ pub type PaletteColor = usize;
 pub type Tick = u32;
 const TICK_WRAP: Tick = Tick::MAX / 4;
 const COLLISION_GAP: usize = 2;
+const PROBABILITY_CURVE: f32 = 2.5;
 
 #[derive(Debug)]
 pub struct City<'a> {
@@ -24,8 +25,8 @@ pub struct City<'a> {
 
 #[derive(Debug, Clone)]
 pub struct LayerDesc {
-    pub density: u32, // 1 (min) .. 100 (max)
-    pub collision: u32, // 1 (min) .. 100 (max)
+    pub density: f32, // 0.0 (min) .. 1.0 (max)
+    pub collision: f32, // ^ same
     pub speed: Tick, // move each N ticks: 1 (faster) .. inf (slower)
     pub wall_color: PaletteColor,
     pub draw_windows: bool,
@@ -98,9 +99,7 @@ impl<'a> City<'a> {
             let threshold =
                 if l.rightmost_building_rcx > sx { d.collision } else { d.density };
 
-            eprintln!("wall {}, thresh {}", d.wall_color, threshold);
-
-            if tick % d.speed == 0 && rng.u32(..100) < threshold {
+            if tick % d.speed == 0 && rng.f32() < threshold.powf(PROBABILITY_CURVE) {
                 let b = Building {
                     size_x: rng.usize(bsz_minmax_w.0..=bsz_minmax_w.1),
                     size_y: rng.usize(bsz_minmax_h.0..=bsz_minmax_h.1),
