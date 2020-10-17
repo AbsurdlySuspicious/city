@@ -8,6 +8,7 @@ pub type PaletteColor = usize;
 
 pub type Tick = u32;
 const TICK_WRAP: Tick = Tick::MAX / 4;
+const COLLISION_GAP: usize = 2;
 
 #[derive(Debug)]
 pub struct City<'a> {
@@ -24,6 +25,7 @@ pub struct City<'a> {
 #[derive(Debug, Clone)]
 pub struct LayerDesc {
     pub density: u32, // 1 (min) .. 100 (max)
+    pub collision: u32, // 1 (min) .. 100 (max)
     pub speed: Tick, // move each N ticks: 1 (faster) .. inf (slower)
     pub wall_color: PaletteColor,
     pub draw_windows: bool,
@@ -33,6 +35,7 @@ pub struct LayerDesc {
 #[derive(Debug, Clone, Default)]
 struct Layer {
     ring: VecDeque<Building>,
+    rightmost_building_rcx: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -92,16 +95,22 @@ impl<'a> City<'a> {
         for (d, l) in layers_desc.iter().zip(layers.iter_mut()) {
             // spawn a new building on this layer
             // don't spawn if not moving on this tick && spawn decision
-            if tick % d.speed == 0 && rng.u32(..100) < d.density {
+            let threshold =
+                if l.rightmost_building_rcx > sx { d.collision } else { d.density };
+
+            eprintln!("wall {}, thresh {}", d.wall_color, threshold);
+
+            if tick % d.speed == 0 && rng.u32(..100) < threshold {
                 let b = Building {
                     size_x: rng.usize(bsz_minmax_w.0..=bsz_minmax_w.1),
                     size_y: rng.usize(bsz_minmax_h.0..=bsz_minmax_h.1),
                     spawn_tick: tick,
                 };
-                l.ring.push_back(b)
+                l.ring.push_back(b);
             }
 
             // draw buildings on canvas
+            let mut rightmost_rc = 0;
             let b_count = l.ring.len();
             for _ in 0..b_count {
                 let b = match l.ring.pop_front() {
@@ -127,6 +136,8 @@ impl<'a> City<'a> {
                 let (w, h) = (w.min(sx - x), h.min(sy));
 
                 l.ring.push_back(b);
+                rightmost_rc =
+                    rightmost_rc.max(x + bsz_x + COLLISION_GAP);
 
                 for cy in y..y+h {
                     let row = canvas.get_row_mut(cy as usize);
@@ -135,6 +146,8 @@ impl<'a> City<'a> {
                     }
                 }
             }
+
+            l.rightmost_building_rcx = rightmost_rc;
         }
 
         // next tick

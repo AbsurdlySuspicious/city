@@ -57,6 +57,7 @@ fn main() {
     let layers = vec![
         LayerDesc {
             density: 35,
+            collision: 15,
             speed: 4,
             wall_color: 47,
             draw_windows: false,
@@ -64,13 +65,15 @@ fn main() {
         },
         LayerDesc {
             density: 20,
+            collision: 5,
             speed: 3,
             wall_color: 100,
             draw_windows: false,
             window_colors: Default::default(),
         },
         LayerDesc {
-            density: 25,
+            density: 12,
+            collision: 1,
             speed: 1,
             wall_color: 40,
             draw_windows: false,
