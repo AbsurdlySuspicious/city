@@ -28,7 +28,7 @@ pub struct LayerDesc {
     pub density: f32, // 0.0 (min) .. 1.0 (max)
     pub collision: f32, // ^ same
     pub speed: Tick, // move each N ticks: 1 (faster) .. inf (slower)
-    pub wall_color: PaletteColor,
+    pub wall_color: ArrayVec<[PaletteColor; 32]>,
     pub draw_windows: bool,
     pub window_colors: ArrayVec<[PaletteColor; 32]>,
 }
@@ -44,6 +44,7 @@ struct Building {
     size_x: usize,
     size_y: usize,
     spawn_tick: Tick,
+    color: PaletteColor,
 }
 
 impl<'a> City<'a> {
@@ -100,10 +101,14 @@ impl<'a> City<'a> {
                 if l.rightmost_building_rcx > sx { d.collision } else { d.density };
 
             if tick % d.speed == 0 && rng.f32() < threshold.powf(PROBABILITY_CURVE) {
+                let colors_len = d.wall_color.len();
+                let color_i = if colors_len > 1 { rng.usize(..colors_len) } else { 0 };
+
                 let b = Building {
                     size_x: rng.usize(bsz_minmax_w.0..=bsz_minmax_w.1),
                     size_y: rng.usize(bsz_minmax_h.0..=bsz_minmax_h.1),
                     spawn_tick: tick,
+                    color: d.wall_color[color_i],
                 };
                 l.ring.push_back(b);
             }
@@ -134,16 +139,17 @@ impl<'a> City<'a> {
                 let (w, h) = (bsz_x - offset_x, bsz_y - offset_y);
                 let (w, h) = (w.min(sx - x), h.min(sy));
 
-                l.ring.push_back(b);
                 rightmost_rc =
                     rightmost_rc.max(x + bsz_x + COLLISION_GAP);
 
                 for cy in y..y+h {
                     let row = canvas.get_row_mut(cy as usize);
                     for char in &mut row[x..][..w] {
-                        *char = d.wall_color;
+                        *char = b.color;
                     }
                 }
+
+                l.ring.push_back(b);
             }
 
             l.rightmost_building_rcx = rightmost_rc;

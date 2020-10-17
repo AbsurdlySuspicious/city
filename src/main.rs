@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::sleep;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use arrayvec::ArrayVec;
 use fastrand::Rng;
 use clap::Clap;
 
@@ -33,6 +34,12 @@ fn info_center(msg: impl fmt::Display, width: usize) {
     println!("{:^w$}", msg, w = width);
 }
 
+macro_rules! av {($($x:expr),*$(,)*) => {{
+    let mut vec = ArrayVec::new();
+    vec.try_extend_from_slice(&[$($x,)*]).unwrap();
+    vec
+}}}
+
 fn main() {
     let opts: Opts = Opts::parse();
 
@@ -59,7 +66,7 @@ fn main() {
             density: 0.75,
             collision: 0.35,
             speed: 4,
-            wall_color: 47,
+            wall_color: av![47],
             draw_windows: false,
             window_colors: Default::default(),
         },
@@ -67,7 +74,7 @@ fn main() {
             density: 0.6,
             collision: 0.25,
             speed: 3,
-            wall_color: 100,
+            wall_color: av![100, 101],
             draw_windows: false,
             window_colors: Default::default(),
         },
@@ -75,7 +82,7 @@ fn main() {
             density: 0.4,
             collision: 0.2,
             speed: 1,
-            wall_color: 40,
+            wall_color: av![40],
             draw_windows: false,
             window_colors: Default::default(),
         }
