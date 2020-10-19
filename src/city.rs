@@ -15,9 +15,12 @@ const ROOF_GAP_X: usize = 2;
 const ROOF_GAP_Y: usize = 1;
 const WINDOW_X: usize = 2;
 const WINDOW_Y: usize = 1;
-const WINDOW_PAD: usize = 1;
+const WINDOW_PAD_T: usize = 2;
+const WINDOW_PAD_B: usize = 2;
+const WINDOW_PAD_L: usize = 3;
+const WINDOW_PAD_R: usize = 4;
 const WINDOW_SPC_Y: usize = 1;
-const WINDOW_SPC_X: usize = 1;
+const WINDOW_SPC_X: usize = 2;
 
 #[derive(Debug)]
 pub struct City<'a> {
@@ -173,15 +176,15 @@ fn draw_building(rng: &Rng, canvas: &mut Vec2D<PaletteColor>, b: &Building, laye
     let (cx, cy) = pos_xy;
     let (sw, sh) = (b.size_x, b.size_y);
     let (iw, ih) = (sw.min(lw), sh.min(lh));
-    if lw == 0 || lh == 0 || sw < ROOF_GAP_X * 2 || sw < WINDOW_PAD * 2 + WINDOW_X {
+    if lw == 0 || lh == 0 || sw < ROOF_GAP_X * 2 || sw < WINDOW_PAD_L + WINDOW_PAD_R + WINDOW_X {
         return; // skip on too small buildings and views
     }
 
     let right_gap_x = sw - ROOF_GAP_X;
     let wnd_unix_x = WINDOW_X + WINDOW_SPC_X;
     let wnd_unit_y = WINDOW_Y + WINDOW_SPC_Y;
-    let wnd_fst_xy = (WINDOW_PAD, ROOF_GAP_Y + WINDOW_PAD);
-    let wnd_lim_xy = (sw - WINDOW_PAD, sh - wnd_unit_y);
+    let wnd_fst_xy = (WINDOW_PAD_L, ROOF_GAP_Y + WINDOW_PAD_T);
+    let wnd_lim_xy = (sw - WINDOW_PAD_R, sh - WINDOW_PAD_B);
 
     let wnd_colors = &layer.window_colors;
     let wnd_colors_len = wnd_colors.len();
@@ -216,7 +219,7 @@ fn draw_building(rng: &Rng, canvas: &mut Vec2D<PaletteColor>, b: &Building, laye
                     for x in row_x() {
                         let mut clr = wall_color;
 
-                        if x >= WINDOW_PAD && x < wnd_lim_xy.0 {
+                        if x >= WINDOW_PAD_L && x < wnd_lim_xy.0 {
                             let cwnd_pos_x = (x - wnd_fst_xy.0) % wnd_unix_x;
 
                             if cwnd_pos_x < WINDOW_X {
