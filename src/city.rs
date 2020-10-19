@@ -2,6 +2,7 @@ use crate::vec2d::Vec2D;
 use std::collections::VecDeque;
 use fastrand::Rng;
 use arrayvec::ArrayVec;
+use std::mem;
 
 pub type WHSize = (usize, usize);
 pub type PaletteColor = usize;
@@ -171,10 +172,37 @@ impl<'a> City<'a> {
     }
 }
 
-#[inline]
-fn rnd_inc_seed(acc: &mut u64, seed: u64) {
-    *acc = (*acc >> 1) ^ seed
+struct Hash(u32);
+
+impl Hash {
+    // one_at_a_time from https://en.wikipedia.org/wiki/Jenkins_hash_function
+
+    #[inline]
+    pub fn new() -> Hash {
+        Hash(0)
+    }
+
+    #[inline]
+    pub fn reset_final(&mut self) -> u32 {
+        let mut hash = mem::replace(&mut self.0, 0);
+        hash += hash << 3;
+        hash ^= hash >> 11;
+        hash += hash << 15;
+        hash
+    }
+
+    #[inline]
+    pub fn inc_seed_u32(&mut self, seed: u32) {
+        let mut hash = self.0;
+        for i in 0..4 {
+            hash += seed >> (8 * i) & 0xff;
+            hash += hash << 10;
+            hash ^= hash >> 6;
+        }
+        self.0 = hash;
+    }
 }
+
 
 fn draw_building(canvas: &mut Vec2D<PaletteColor>, b: &Building, layer: &LayerDesc,
                  pos_xy: (usize, usize), offset_xy: (usize, usize), limits_xy: (usize, usize)) {
@@ -186,9 +214,9 @@ fn draw_building(canvas: &mut Vec2D<PaletteColor>, b: &Building, layer: &LayerDe
         return; // skip on too small buildings and views
     }
 
-    let seed = b.seed;
-    let rng = Rng::with_seed(seed);
-    let mut acc;
+    let rng = Rng::with_seed(b.seed);
+    let seed_fill = rng.u32(..) as u64;
+    let mut hash = Hash::new();
 
     let right_gap_x = sw - ROOF_GAP_X;
     let wnd_unix_x = WINDOW_X + WINDOW_SPC_X;
@@ -234,10 +262,10 @@ fn draw_building(canvas: &mut Vec2D<PaletteColor>, b: &Building, layer: &LayerDe
                             let cwnd_pos_x = (x - wnd_fst_xy.0) % wnd_unix_x;
 
                             if cwnd_pos_x == 0 {
-                                acc = seed;
-                                rnd_inc_seed(&mut acc, x as u64);
-                                rnd_inc_seed(&mut acc, y as u64);
-                                rng.seed(acc);
+                                hash.inc_seed_u32(0xdeadbeef);
+                                hash.inc_seed_u32(x as u32);
+                                hash.inc_seed_u32(y as u32);
+                                rng.seed(seed_fill << 32 | hash.reset_final() as u64);
                                 let i = rng.usize(..wnd_colors_len);
                                 wnd_clr = wnd_colors[i];
                             }
