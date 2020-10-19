@@ -183,7 +183,7 @@ fn draw_building(rng: &Rng, canvas: &mut Vec2D<PaletteColor>, b: &Building, laye
     let wnd_fst_xy = (WINDOW_PAD, ROOF_GAP_Y + WINDOW_PAD);
     let wnd_lst_xy = (sw - WINDOW_X - WINDOW_PAD, sh - wnd_unit_y);
 
-    let wnd_colors = &layer.wall_color;
+    let wnd_colors = &layer.window_colors;
     let wnd_colors_len = wnd_colors.len();
     let wnd_draw = layer.draw_windows && wnd_colors_len > 0;
     let wall_color = b.color;
