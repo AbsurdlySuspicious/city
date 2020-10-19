@@ -84,7 +84,7 @@ fn main() {
             speed: 1,
             wall_color: av![40],
             draw_windows: true,
-            window_colors: av![107, 101],
+            window_colors: av![107],
         }
     ];
 
