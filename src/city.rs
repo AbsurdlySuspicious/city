@@ -181,7 +181,7 @@ fn draw_building(rng: &Rng, canvas: &mut Vec2D<PaletteColor>, b: &Building, laye
     let wnd_unix_x = WINDOW_X + WINDOW_SPC_X;
     let wnd_unit_y = WINDOW_Y + WINDOW_SPC_Y;
     let wnd_fst_xy = (WINDOW_PAD, ROOF_GAP_Y + WINDOW_PAD);
-    let wnd_lst_xy = (sw - WINDOW_X - WINDOW_PAD, sh - wnd_unit_y);
+    let wnd_lim_xy = (sw - WINDOW_PAD, sh - wnd_unit_y);
 
     let wnd_colors = &layer.window_colors;
     let wnd_colors_len = wnd_colors.len();
@@ -207,7 +207,7 @@ fn draw_building(rng: &Rng, canvas: &mut Vec2D<PaletteColor>, b: &Building, laye
 
             let mut wnd_drawn_y = false;
 
-            if wnd_draw && y >= wnd_fst_xy.1 && y <= wnd_lst_xy.1 {
+            if wnd_draw && y >= wnd_fst_xy.1 && y < wnd_lim_xy.1 {
                 let cwnd_pos_y  = (y - wnd_fst_xy.1) % wnd_unit_y;
 
                 if cwnd_pos_y < WINDOW_Y {
@@ -216,7 +216,7 @@ fn draw_building(rng: &Rng, canvas: &mut Vec2D<PaletteColor>, b: &Building, laye
                     for x in row_x() {
                         let mut clr = wall_color;
 
-                        if x >= WINDOW_PAD && x <= wnd_lst_xy.0 {
+                        if x >= WINDOW_PAD && x < wnd_lim_xy.0 {
                             let cwnd_pos_x = (x - wnd_fst_xy.0) % wnd_unix_x;
 
                             if cwnd_pos_x < WINDOW_X {
