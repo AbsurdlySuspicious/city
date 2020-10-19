@@ -56,6 +56,7 @@ struct Building {
     size_y: usize,
     spawn_tick: Tick,
     color: PaletteColor,
+    seed: u64,
 }
 
 impl<'a> City<'a> {
@@ -101,7 +102,6 @@ impl<'a> City<'a> {
 
         let bsz_minmax_w = (6, 25);
         let bsz_minmax_h = (10, sy + 2);
-        // todo alloc second canvas for building drawing then [offset_x..][..w], etc..
 
         // wipe canvas
         canvas.fill_with(*background);
@@ -121,6 +121,7 @@ impl<'a> City<'a> {
                     size_y: rng.usize(bsz_minmax_h.0..=bsz_minmax_h.1),
                     spawn_tick: tick,
                     color: d.wall_color[color_i],
+                    seed: rng.u64(..),
                 };
                 l.ring.push_back(b);
             }
@@ -154,7 +155,7 @@ impl<'a> City<'a> {
                 rightmost_rc =
                     rightmost_rc.max(x + bsz_x + COLLISION_GAP);
 
-                draw_building(rng, canvas, &b, d, (x, y), (offset_x, offset_y), (w, h));
+                draw_building(canvas, &b, d, (x, y), (offset_x, offset_y), (w, h));
                 l.ring.push_back(b);
             }
 
@@ -170,7 +171,12 @@ impl<'a> City<'a> {
     }
 }
 
-fn draw_building(rng: &Rng, canvas: &mut Vec2D<PaletteColor>, b: &Building, layer: &LayerDesc,
+#[inline]
+fn rnd_inc_seed(acc: &mut u64, seed: u64) {
+    *acc = (*acc >> 1) ^ seed
+}
+
+fn draw_building(canvas: &mut Vec2D<PaletteColor>, b: &Building, layer: &LayerDesc,
                  pos_xy: (usize, usize), offset_xy: (usize, usize), limits_xy: (usize, usize)) {
     let ((ox, oy), (lw, lh)) = (offset_xy, limits_xy);
     let (cx, cy) = pos_xy;
@@ -179,6 +185,10 @@ fn draw_building(rng: &Rng, canvas: &mut Vec2D<PaletteColor>, b: &Building, laye
     if lw == 0 || lh == 0 || sw < ROOF_GAP_X * 2 || sw < WINDOW_PAD_L + WINDOW_PAD_R + WINDOW_X {
         return; // skip on too small buildings and views
     }
+
+    let seed = b.seed;
+    let rng = Rng::with_seed(seed);
+    let mut acc;
 
     let right_gap_x = sw - ROOF_GAP_X;
     let wnd_unix_x = WINDOW_X + WINDOW_SPC_X;
@@ -215,6 +225,7 @@ fn draw_building(rng: &Rng, canvas: &mut Vec2D<PaletteColor>, b: &Building, laye
 
                 if cwnd_pos_y < WINDOW_Y {
                     wnd_drawn_y = true;
+                    let mut wnd_clr = wall_color;
 
                     for x in row_x() {
                         let mut clr = wall_color;
@@ -222,9 +233,17 @@ fn draw_building(rng: &Rng, canvas: &mut Vec2D<PaletteColor>, b: &Building, laye
                         if x >= WINDOW_PAD_L && x < wnd_lim_xy.0 {
                             let cwnd_pos_x = (x - wnd_fst_xy.0) % wnd_unix_x;
 
-                            if cwnd_pos_x < WINDOW_X {
+                            if cwnd_pos_x == 0 {
+                                acc = seed;
+                                rnd_inc_seed(&mut acc, x as u64);
+                                rnd_inc_seed(&mut acc, y as u64);
+                                rng.seed(acc);
                                 let i = rng.usize(..wnd_colors_len);
-                                clr = wnd_colors[i];
+                                wnd_clr = wnd_colors[i];
+                            }
+
+                            if cwnd_pos_x < WINDOW_X {
+                                clr = wnd_clr;
                             }
                         }
 
