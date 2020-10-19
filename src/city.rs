@@ -198,7 +198,7 @@ fn draw_building(rng: &Rng, canvas: &mut Vec2D<PaletteColor>, b: &Building, laye
             // draw upper corners
 
             for x in row_x() {
-                if x > ROOF_GAP_X || x <= right_gap_x {
+                if x >= ROOF_GAP_X && x < right_gap_x {
                     r[row_i(x)] = wall_color;
                 }
             }
