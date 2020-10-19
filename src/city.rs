@@ -8,8 +8,16 @@ pub type PaletteColor = usize;
 
 pub type Tick = u32;
 const TICK_WRAP: Tick = Tick::MAX / 4;
-const COLLISION_GAP: usize = 2;
 const PROBABILITY_CURVE: f32 = 2.5;
+
+const COLLISION_GAP: usize = 2;
+const ROOF_GAP_X: usize = 2;
+const ROOF_GAP_Y: usize = 1;
+const WINDOW_X: usize = 2;
+const WINDOW_Y: usize = 1;
+const WINDOW_PAD: usize = 1;
+const WINDOW_SPC_Y: usize = 1;
+const WINDOW_SPC_X: usize = 1;
 
 #[derive(Debug)]
 pub struct City<'a> {
@@ -90,6 +98,7 @@ impl<'a> City<'a> {
 
         let bsz_minmax_w = (6, 25);
         let bsz_minmax_h = (10, sy + 2);
+        // todo alloc second canvas for building drawing then [offset_x..][..w], etc..
 
         // wipe canvas
         canvas.fill_with(*background);
@@ -142,13 +151,7 @@ impl<'a> City<'a> {
                 rightmost_rc =
                     rightmost_rc.max(x + bsz_x + COLLISION_GAP);
 
-                for cy in y..y+h {
-                    let row = canvas.get_row_mut(cy as usize);
-                    for char in &mut row[x..][..w] {
-                        *char = b.color;
-                    }
-                }
-
+                draw_building(rng, canvas, &b, d, (x, y), (offset_x, offset_y), (w, h));
                 l.ring.push_back(b);
             }
 
@@ -161,5 +164,77 @@ impl<'a> City<'a> {
             tick = 1;
         }
         *tick_ref = tick;
+    }
+}
+
+fn draw_building(rng: &Rng, canvas: &mut Vec2D<PaletteColor>, b: &Building, layer: &LayerDesc,
+                 pos_xy: (usize, usize), offset_xy: (usize, usize), limits_xy: (usize, usize)) {
+    let ((ox, oy), (lw, lh)) = (offset_xy, limits_xy);
+    let (cx, cy) = pos_xy;
+    let (sw, sh) = (b.size_x, b.size_y);
+    let (iw, ih) = (sw.min(lw), sh.min(lh));
+    if lw == 0 || lh == 0 || sw < ROOF_GAP_X * 2 || sw < WINDOW_PAD * 2 + WINDOW_X {
+        return; // skip on too small buildings and views
+    }
+
+    let right_gap_x = sw - ROOF_GAP_X;
+    let wnd_unix_x = WINDOW_X + WINDOW_SPC_X;
+    let wnd_unit_y = WINDOW_Y + WINDOW_SPC_Y;
+    let wnd_fst_xy = (WINDOW_PAD, ROOF_GAP_Y + WINDOW_PAD);
+    let wnd_lst_xy = (sw - WINDOW_X - WINDOW_PAD, sh - wnd_unit_y);
+
+    let wnd_colors = &layer.wall_color;
+    let wnd_colors_len = wnd_colors.len();
+    let wnd_draw = layer.draw_windows && wnd_colors_len > 0;
+    let wall_color = b.color;
+
+    let row_x = move || ox..ox+iw;
+    let row_i = move |x| cx + (x - ox);
+
+    for y in oy..oy+ih {
+        let r = canvas.get_row_mut(cy + (y - oy));
+
+        if y < ROOF_GAP_Y {
+            // draw upper corners
+
+            for x in row_x() {
+                if x > ROOF_GAP_X || x <= right_gap_x {
+                    r[row_i(x)] = wall_color;
+                }
+            }
+        } else {
+            // draw normal walls and windows
+
+            let mut wnd_drawn_y = false;
+
+            if wnd_draw && y >= wnd_fst_xy.1 && y <= wnd_lst_xy.1 {
+                let cwnd_pos_y  = (y - wnd_fst_xy.1) % wnd_unit_y;
+
+                if cwnd_pos_y < WINDOW_Y {
+                    wnd_drawn_y = true;
+
+                    for x in row_x() {
+                        let mut clr = wall_color;
+
+                        if x >= WINDOW_PAD && x <= wnd_lst_xy.0 {
+                            let cwnd_pos_x = (x - wnd_fst_xy.0) % wnd_unix_x;
+
+                            if cwnd_pos_x < WINDOW_X {
+                                let i = rng.usize(..wnd_colors_len);
+                                clr = wnd_colors[i];
+                            }
+                        }
+
+                        r[row_i(x)] = clr;
+                    }
+                }
+            }
+
+            if !wnd_drawn_y {
+                for x in row_x() {
+                    r[row_i(x)] = wall_color;
+                }
+            }
+        }
     }
 }

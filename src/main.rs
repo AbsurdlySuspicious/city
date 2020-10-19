@@ -83,8 +83,8 @@ fn main() {
             collision: 0.05,
             speed: 1,
             wall_color: av![40],
-            draw_windows: false,
-            window_colors: Default::default(),
+            draw_windows: true,
+            window_colors: av![107, 101],
         }
     ];
 
