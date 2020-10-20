@@ -117,7 +117,8 @@ fn main() {
         r1
     };
 
-    let frame_time = Duration::from_millis(1000 / fps);
+    let target_frame_time_ms = 1000 / fps;
+    let frame_time = Duration::from_millis(target_frame_time_ms);
     let error_refresh_time = Duration::from_millis(500);
     let zero_d = Duration::new(0, 0);
     let mut r_times = BoundedVecDeque::new(1000);
@@ -174,8 +175,13 @@ fn main() {
             let diff_tick = before_draw.duration_since(start).unwrap_or(zero_d);
             let sleep_d = frame_time.checked_sub(diff).unwrap_or(zero_d);
 
-            print!("\x1b[0m\x1b[2Krender time: {}ms (tick: {}us)",
-                   diff.as_millis(), diff_tick.as_micros());
+            let real_fps = match sleep_d.as_millis() as u64 {
+                0 => 1000_u64 / diff.as_millis() as u64,
+                _ => fps,
+            };
+
+            print!("\x1b[0m\x1b[2Krender time: {: >4}ms / tick: {: >4}us / fps: {: >4}",
+                   diff.as_millis(), diff_tick.as_micros(), real_fps);
 
             r_times.push_back(diff.as_millis() as u32);
             sleep(sleep_d);
