@@ -126,6 +126,7 @@ fn main() {
     let rng = Rng::with_seed(seed);
     let mut console_buf = String::new();
     let mut city_state = City::new(width, height, step, &rng, bg_color, &layers);
+    let mut skip_ticks = layers.iter().map(|d| d.speed).max().unwrap_or(0) * width as u32;
 
     let mut reset_console = true;
 
@@ -167,6 +168,11 @@ fn main() {
             }
 
             city_state.next_tick();
+
+            if skip_ticks > 0 {
+                skip_ticks -= 1;
+                continue;
+            }
 
             let before_draw = SystemTime::now();
             console::draw_to_console(&city_state, &mut console_buf, &mut out_lock);
