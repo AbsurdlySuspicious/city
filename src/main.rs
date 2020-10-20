@@ -1,17 +1,18 @@
+use std::collections::VecDeque;
 use std::fmt;
+use std::slice;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::sleep;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use std::slice;
 
 use arrayvec::ArrayVec;
-use fastrand::Rng;
-use clap::Clap;
 use bounded_vec_deque::BoundedVecDeque;
+use clap::Clap;
+use fastrand::Rng;
 
 use city::{City, LayerDesc, Tick};
-use std::collections::VecDeque;
+use crate::console::{SIZE_DEFAULT_W, SIZE_DEFAULT_H, SIZE_MIN_W, SIZE_MIN_H};
 
 mod city;
 mod console;
@@ -59,20 +60,19 @@ fn main() {
     let step = opts.step.unwrap_or(1);
     let seed = opts.seed.unwrap_or_else(unix_time);
 
-    let (width, height) = if !opts.auto_size {
-        (opts.width.unwrap_or(150), opts.height.unwrap_or(40))
+    let auto_size = opts.auto_size;
+    let (mut width, mut height) = if auto_size {
+        console::get_term_size()
     } else {
-        match term_size::dimensions() {
-            Some((w, h)) => (w.saturating_sub(5), h.saturating_sub(5)),
-            None => panic!("Can't get terminal size, try removing -a"),
-        }
+        (opts.width.unwrap_or(SIZE_DEFAULT_W),
+         opts.height.unwrap_or(SIZE_DEFAULT_H))
     };
 
     if step < 1 || step > (width / 2) as u32 {
         panic!("Invalid step")
     }
 
-    if width < 30 || height < 30 {
+    if width < SIZE_MIN_W || height < SIZE_MIN_H {
         panic!("Size is too small")
     }
 
@@ -117,36 +117,52 @@ fn main() {
         r1
     };
 
-    console::setup_console();
-    info_center("oO0OoO0OoO0Oo CiTY oO0OoO0OoO0Oo", width);
-    println!();
-    println!("seed: {}", seed);
-
-    let rng = Rng::with_seed(seed);
-    let mut console_buf = String::new();
-    let mut city_state = City::new(width, height, step, &rng, bg_color, &layers);
-
-    console::prepare_canvas(height);
-    let out = std::io::stdout();
-    let mut out_lock = out.lock();
-
     let frame_time = Duration::from_millis(1000 / fps);
     let zero_d = Duration::new(0, 0);
     let mut r_times = BoundedVecDeque::new(1000);
 
-    while running.load(Ordering::Relaxed) {
-        let start = SystemTime::now();
-        city_state.next_tick();
-        console::draw_to_console(&city_state, &mut console_buf, &mut out_lock);
+    let mut reset_console = true;
 
-        let diff = SystemTime::now().duration_since(start).unwrap_or(zero_d);
-        let sleep_d = frame_time.checked_sub(diff).unwrap_or(zero_d);
-        print!("\x1b[0m\x1b[2Krender time: {}ms", diff.as_millis());
-        r_times.push_back(diff.as_millis() as u32);
-        sleep(sleep_d);
+    while reset_console {
+        reset_console = false;
+
+        console::setup_console();
+        info_center("oO0OoO0OoO0Oo CiTY oO0OoO0OoO0Oo", width);
+        println!();
+        println!("seed: {}", seed);
+
+        let rng = Rng::with_seed(seed);
+        let mut console_buf = String::new();
+        let mut city_state = City::new(width, height, step, &rng, bg_color, &layers);
+
+        console::prepare_canvas(height);
+        let out = std::io::stdout();
+        let mut out_lock = out.lock();
+
+        while running.load(Ordering::Relaxed) {
+            let start = SystemTime::now();
+            city_state.next_tick();
+            console::draw_to_console(&city_state, &mut console_buf, &mut out_lock);
+
+            if auto_size {
+                let (w, h) = console::get_term_size();
+                if (w != width || h != height) && w >= SIZE_MIN_W && h >= SIZE_MIN_H {
+                    width = w;
+                    height = h;
+                    reset_console = true;
+                    break;
+                }
+            }
+
+            let diff = SystemTime::now().duration_since(start).unwrap_or(zero_d);
+            let sleep_d = frame_time.checked_sub(diff).unwrap_or(zero_d);
+            print!("\x1b[0m\x1b[2Krender time: {}ms", diff.as_millis());
+            r_times.push_back(diff.as_millis() as u32);
+            sleep(sleep_d);
+        }
+
+        console::destroy_console();
     }
-
-    console::destroy_console();
 
     let mut r_times = r_times.into_unbounded();
     let r_times = unsafe { deque_raw_slice(&mut r_times) };

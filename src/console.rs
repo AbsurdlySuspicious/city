@@ -3,6 +3,20 @@ use std::io::StdoutLock;
 use std::fmt::Write as fmtWrite;
 use std::io::Write as ioWrite;
 
+pub const SIZE_DEFAULT_W: usize = 150;
+pub const SIZE_DEFAULT_H: usize = 40;
+pub const SIZE_MIN_W: usize = 30;
+pub const SIZE_MIN_H: usize = 30;
+pub const SIZE_AUTO_PAD_W: usize = 0;
+pub const SIZE_AUTO_PAD_H: usize = 5;
+
+pub fn get_term_size() -> (usize, usize) {
+    match term_size::dimensions() {
+        Some((w, h)) => (w.saturating_sub(SIZE_AUTO_PAD_W), h.saturating_sub(SIZE_AUTO_PAD_H)),
+        None => panic!("Can't get terminal size, try removing -a"),
+    }
+}
+
 pub fn setup_console() {
     //print!("\x1b[?1049h\x1b[1;1H\x1b[?25l"); // go to alt buffer and disable cursor
     print!("\x1b[?25l") // disable cursor
