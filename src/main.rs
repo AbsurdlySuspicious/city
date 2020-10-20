@@ -1,6 +1,8 @@
+use std::{env, fmt, slice};
+use std::borrow::Borrow;
 use std::collections::VecDeque;
-use std::fmt;
-use std::slice;
+use std::process::exit;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::sleep;
@@ -8,28 +10,73 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use arrayvec::ArrayVec;
 use bounded_vec_deque::BoundedVecDeque;
-use clap::Clap;
 use fastrand::Rng;
 
 use city::{City, LayerDesc, Tick};
-use crate::console::{SIZE_DEFAULT_W, SIZE_DEFAULT_H, SIZE_MIN_W, SIZE_MIN_H};
+
+use crate::console::{SIZE_DEFAULT_H, SIZE_DEFAULT_W, SIZE_MIN_H, SIZE_MIN_W};
 
 mod city;
 mod console;
 mod vec2d;
 
-#[derive(Clap)]
+#[derive(Debug, Default)]
 struct Opts {
-    #[clap(short, long)]
     fps: Option<u64>,
-    #[clap(short = 't', long)]
     step: Option<Tick>,
-    #[clap(short, long)]
     seed: Option<u64>,
-    #[clap(short, long)]
     auto_size: bool,
     width: Option<usize>,
     height: Option<usize>,
+}
+
+fn parse_args() -> Opts {
+    fn parse<A: Borrow<str>, T: FromStr>(arg: Option<A>, name: &str) -> Option<T>
+    where <T as FromStr>::Err: fmt::Debug {
+        match arg.map(|a| a.borrow().parse()) {
+            Some(Ok(value)) => Some(value),
+            Some(Err(e)) => panic!("Can't parse {} value: {:?}", name, e),
+            None => panic!("Expected value for {}", name),
+        }
+    }
+
+    const HELP: &str = r#"
+Usage: city [options] [width] [height]
+-f      Set target fps (default: 60)
+-t      Set step per frame (default: 1)
+-s      Custom seed
+-a      Use terminal size (auto-size)
+"#;
+
+    let pos_names = ["", "[width]", "[height]"];
+    let mut pos_i = 0;
+    let mut opts = Opts::default();
+    let mut args = env::args();
+
+    while let Some(a) = args.next() {
+        match a.as_str() {
+            "-h" | "--help" => {
+                println!("{}", HELP);
+                exit(0);
+            }
+            "-f" => opts.fps = parse(args.next(), &a),
+            "-t" => opts.step = parse(args.next(), &a),
+            "-s" => opts.seed = parse(args.next(), &a),
+            "-a" => opts.auto_size = true,
+            u if u.starts_with("-") => panic!("Unknown arg {}", u),
+            pos => {
+                match pos_i {
+                    0 => {},
+                    1 => opts.width = parse(Some(pos), pos_names[pos_i]),
+                    2 => opts.height = parse(Some(pos), pos_names[pos_i]),
+                    _ => panic!("Unknown arg at position {}", pos_i)
+                }
+                pos_i += 1;
+            }
+        }
+    }
+
+    opts
 }
 
 fn unix_time() -> u64 {
@@ -54,7 +101,7 @@ macro_rules! av {($($x:expr),*$(,)*) => {{
 }}}
 
 fn main() {
-    let opts: Opts = Opts::parse();
+    let opts = parse_args();
 
     let fps = opts.fps.unwrap_or(60);
     let step = opts.step.unwrap_or(1);
@@ -68,12 +115,12 @@ fn main() {
          opts.height.unwrap_or(SIZE_DEFAULT_H))
     };
 
-    if step < 1 || step > (width / 2) as u32 {
-        panic!("Invalid step")
-    }
-
     if !auto_size && (width < SIZE_MIN_W || height < SIZE_MIN_H) {
         panic!("Size is too small")
+    }
+
+    if step < 1 || step > (width / 2) as u32 {
+        panic!("Invalid step")
     }
 
     if !(1..1000).contains(&fps) {
