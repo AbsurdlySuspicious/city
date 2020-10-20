@@ -3,12 +3,15 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::sleep;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::slice;
 
 use arrayvec::ArrayVec;
 use fastrand::Rng;
 use clap::Clap;
+use bounded_vec_deque::BoundedVecDeque;
 
 use city::{City, LayerDesc, Tick};
+use std::collections::VecDeque;
 
 mod city;
 mod console;
@@ -32,6 +35,13 @@ fn unix_time() -> u64 {
 
 fn info_center(msg: impl fmt::Display, width: usize) {
     println!("{:^w$}", msg, w = width);
+}
+
+unsafe fn deque_raw_slice<T>(d: &mut VecDeque<T>) -> &mut [T] {
+    let len = d.len();
+    let (right, left) = d.as_mut_slices();
+    let leftmost = if left.is_empty() { right } else { left };
+    slice::from_raw_parts_mut(leftmost.as_mut_ptr(), len)
 }
 
 macro_rules! av {($($x:expr),*$(,)*) => {{
@@ -112,7 +122,7 @@ fn main() {
 
     let frame_time = Duration::from_millis(1000 / fps);
     let zero_d = Duration::new(0, 0);
-    let mut r_times = Vec::new();
+    let mut r_times = BoundedVecDeque::new(1000);
 
     while running.load(Ordering::Relaxed) {
         let start = SystemTime::now();
@@ -122,11 +132,14 @@ fn main() {
         let diff = SystemTime::now().duration_since(start).unwrap_or(zero_d);
         let sleep_d = frame_time.checked_sub(diff).unwrap_or(zero_d);
         print!("\x1b[0m\x1b[2Krender time: {}ms", diff.as_millis());
-        r_times.push(diff.as_millis());
+        r_times.push_back(diff.as_millis() as u32);
         sleep(sleep_d);
     }
 
     console::destroy_console();
+
+    let mut r_times = r_times.into_unbounded();
+    let r_times = unsafe { deque_raw_slice(&mut r_times) };
 
     r_times.sort_unstable();
     let rtl = r_times.len();
