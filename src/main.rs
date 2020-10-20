@@ -147,24 +147,27 @@ fn main() {
         while running.load(Ordering::Relaxed) {
             let start = SystemTime::now();
 
-            if auto_size {
-                let (w, h) = console::get_term_size();
-                if w != width || h != height {
-                    if w >= SIZE_MIN_W && h >= SIZE_MIN_H {
-                        city_state.set_wh(w, h);
+            if skip_ticks == 0 {
+                if auto_size {
+                    let (w, h) = console::get_term_size();
+                    if w != width || h != height {
+                        if w >= SIZE_MIN_W && h >= SIZE_MIN_H {
+                            city_state.set_wh(w, h);
+                        }
+                        width = w;
+                        height = h;
+                        reset_console = true;
+                        break;
                     }
-                    width = w; height = h;
-                    reset_console = true;
-                    break;
                 }
-            }
 
-            if width < SIZE_MIN_W || height < SIZE_MIN_H {
-                console::clear_line_msg(&mut out_lock,
-                                        format_args!("Too small ({}x{}) < ({}x{})",
-                                                     width, height, SIZE_MIN_W, SIZE_MIN_H));
-                sleep(error_refresh_time);
-                continue;
+                if width < SIZE_MIN_W || height < SIZE_MIN_H {
+                    console::clear_line_msg(&mut out_lock,
+                                            format_args!("Too small ({}x{}) < ({}x{})",
+                                                         width, height, SIZE_MIN_W, SIZE_MIN_H));
+                    sleep(error_refresh_time);
+                    continue;
+                }
             }
 
             city_state.next_tick();

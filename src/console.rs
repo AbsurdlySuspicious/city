@@ -6,7 +6,7 @@ use crate::city::City;
 
 pub const SIZE_DEFAULT_W: usize = 150;
 pub const SIZE_DEFAULT_H: usize = 40;
-pub const SIZE_MIN_W: usize = 10;
+pub const SIZE_MIN_W: usize = 50;
 pub const SIZE_MIN_H: usize = 10;
 pub const SIZE_AUTO_PAD_W: usize = 0;
 pub const SIZE_AUTO_PAD_H: usize = 5;
