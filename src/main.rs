@@ -72,7 +72,7 @@ fn main() {
         panic!("Invalid step")
     }
 
-    if width < SIZE_MIN_W || height < SIZE_MIN_H {
+    if !auto_size && (width < SIZE_MIN_W || height < SIZE_MIN_H) {
         panic!("Size is too small")
     }
 
@@ -118,22 +118,25 @@ fn main() {
     };
 
     let frame_time = Duration::from_millis(1000 / fps);
+    let error_refresh_time = Duration::from_millis(500);
     let zero_d = Duration::new(0, 0);
     let mut r_times = BoundedVecDeque::new(1000);
+
+    let rng = Rng::with_seed(seed);
+    let mut console_buf = String::new();
+    let mut city_state = City::new(width, height, step, &rng, bg_color, &layers);
 
     let mut reset_console = true;
 
     while reset_console {
         reset_console = false;
+        console_buf.clear();
+        console_buf.shrink_to_fit();
 
         console::setup_console();
         info_center("oO0OoO0OoO0Oo CiTY oO0OoO0OoO0Oo", width);
         println!();
         println!("seed: {}", seed);
-
-        let rng = Rng::with_seed(seed);
-        let mut console_buf = String::new();
-        let mut city_state = City::new(width, height, step, &rng, bg_color, &layers);
 
         console::prepare_canvas(height);
         let out = std::io::stdout();
@@ -141,18 +144,29 @@ fn main() {
 
         while running.load(Ordering::Relaxed) {
             let start = SystemTime::now();
-            city_state.next_tick();
-            console::draw_to_console(&city_state, &mut console_buf, &mut out_lock);
 
             if auto_size {
                 let (w, h) = console::get_term_size();
-                if (w != width || h != height) && w >= SIZE_MIN_W && h >= SIZE_MIN_H {
-                    width = w;
-                    height = h;
+                if w != width || h != height {
+                    if w >= SIZE_MIN_W && h >= SIZE_MIN_H {
+                        city_state.set_wh(w, h);
+                    }
+                    width = w; height = h;
                     reset_console = true;
                     break;
                 }
             }
+
+            if width < SIZE_MIN_W || height < SIZE_MIN_H {
+                console::clear_line_msg(&mut out_lock,
+                                        format_args!("Too small ({}x{}) < ({}x{})",
+                                                     width, height, SIZE_MIN_W, SIZE_MIN_H));
+                sleep(error_refresh_time);
+                continue;
+            }
+
+            city_state.next_tick();
+            console::draw_to_console(&city_state, &mut console_buf, &mut out_lock);
 
             let diff = SystemTime::now().duration_since(start).unwrap_or(zero_d);
             let sleep_d = frame_time.checked_sub(diff).unwrap_or(zero_d);

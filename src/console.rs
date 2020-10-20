@@ -1,12 +1,13 @@
-use crate::city::City;
-use std::io::StdoutLock;
-use std::fmt::Write as fmtWrite;
+use std::fmt::{Display, Write as fmtWrite};
 use std::io::Write as ioWrite;
+use std::io::StdoutLock;
+
+use crate::city::City;
 
 pub const SIZE_DEFAULT_W: usize = 150;
 pub const SIZE_DEFAULT_H: usize = 40;
-pub const SIZE_MIN_W: usize = 30;
-pub const SIZE_MIN_H: usize = 30;
+pub const SIZE_MIN_W: usize = 10;
+pub const SIZE_MIN_H: usize = 10;
 pub const SIZE_AUTO_PAD_W: usize = 0;
 pub const SIZE_AUTO_PAD_H: usize = 5;
 
@@ -17,9 +18,14 @@ pub fn get_term_size() -> (usize, usize) {
     }
 }
 
+pub fn clear_line_msg(lck: &mut StdoutLock, msg: impl Display) {
+    write!(lck, "\x1b[1;1H\x1b[2J{}", msg).unwrap();
+    lck.flush().unwrap();
+}
+
 pub fn setup_console() {
-    //print!("\x1b[?1049h\x1b[1;1H\x1b[?25l"); // go to alt buffer and disable cursor
-    print!("\x1b[?25l") // disable cursor
+    //print!("\x1b[?1049h\x1b[1;1H\x1b[?25l"); // switch to alt buffer and disable cursor
+    print!("\x1b[?25l\x1b[0m") // disable cursor and clear styles
 }
 
 pub fn prepare_canvas(height: usize) {
@@ -30,7 +36,7 @@ pub fn prepare_canvas(height: usize) {
 }
 
 pub fn destroy_console() {
-    //println!("\x1b[?25h\x1b[?1049l"); // enable cursor and go to normal buffer
+    //println!("\x1b[?25h\x1b[?1049l"); // enable cursor and switch to normal buffer
     println!("\x1b[?25h"); // enable cursor
 }
 

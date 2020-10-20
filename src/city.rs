@@ -74,7 +74,7 @@ impl<'a> City<'a> {
             size: (width, height),
             tick: 1,
             background: bg_color,
-            canvas: Vec2D::new(width as usize, height as usize, || bg_color),
+            canvas: Vec2D::new(width, height, || bg_color),
             layers: vec![Layer::default(); layers.len()],
             layers_desc: layers,
         }
@@ -93,6 +93,11 @@ impl<'a> City<'a> {
     #[inline]
     pub fn get_canvas(&self) -> &Vec2D<PaletteColor> {
         &self.canvas
+    }
+
+    pub fn set_wh(&mut self, w: usize, h: usize) {
+        self.size = (w, h);
+        self.canvas = Vec2D::new(w, h, || self.background);
     }
 
     pub fn next_tick(&mut self) {
