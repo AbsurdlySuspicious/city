@@ -166,11 +166,17 @@ fn main() {
             }
 
             city_state.next_tick();
+
+            let before_draw = SystemTime::now();
             console::draw_to_console(&city_state, &mut console_buf, &mut out_lock);
 
             let diff = SystemTime::now().duration_since(start).unwrap_or(zero_d);
+            let diff_tick = before_draw.duration_since(start).unwrap_or(zero_d);
             let sleep_d = frame_time.checked_sub(diff).unwrap_or(zero_d);
-            print!("\x1b[0m\x1b[2Krender time: {}ms", diff.as_millis());
+
+            print!("\x1b[0m\x1b[2Krender time: {}ms (tick: {}us)",
+                   diff.as_millis(), diff_tick.as_micros());
+
             r_times.push_back(diff.as_millis() as u32);
             sleep(sleep_d);
         }
