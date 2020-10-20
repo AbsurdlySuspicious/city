@@ -25,6 +25,8 @@ struct Opts {
     step: Option<Tick>,
     #[clap(short, long)]
     seed: Option<u64>,
+    #[clap(short, long)]
+    auto_size: bool,
     width: Option<usize>,
     height: Option<usize>,
 }
@@ -56,7 +58,15 @@ fn main() {
     let fps = opts.fps.unwrap_or(60);
     let step = opts.step.unwrap_or(1);
     let seed = opts.seed.unwrap_or_else(unix_time);
-    let (width, height) = (opts.width.unwrap_or(150), opts.height.unwrap_or(40));
+
+    let (width, height) = if !opts.auto_size {
+        (opts.width.unwrap_or(150), opts.height.unwrap_or(40))
+    } else {
+        match term_size::dimensions() {
+            Some((w, h)) => (w.saturating_sub(5), h.saturating_sub(5)),
+            None => panic!("Can't get terminal size, try removing -a"),
+        }
+    };
 
     if step < 1 || step > (width / 2) as u32 {
         panic!("Invalid step")
