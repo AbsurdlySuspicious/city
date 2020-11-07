@@ -8,8 +8,8 @@ pub type WHSize = (usize, usize);
 pub type PaletteColor = usize;
 
 pub type Tick = u32;
-const TICK_WRAP: Tick = Tick::MAX / 4;
-const PROBABILITY_CURVE: f32 = 2.5;
+pub const TICK_WRAP: Tick = Tick::MAX / 4;
+pub const PROBABILITY_CURVE: f32 = 2.5;
 
 const COLLISION_GAP: usize = 2;
 const ROOF_GAP_X: usize = 2;

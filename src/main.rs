@@ -7,12 +7,13 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::sleep;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::io::Write;
 
 use arrayvec::ArrayVec;
 use bounded_vec_deque::BoundedVecDeque;
 use fastrand::Rng;
 
-use city::{City, LayerDesc, Tick};
+use city::{City, LayerDesc, Tick, TICK_WRAP};
 
 use crate::console::{SIZE_DEFAULT_H, SIZE_DEFAULT_W, SIZE_MIN_H, SIZE_MIN_W};
 
@@ -100,6 +101,9 @@ macro_rules! av {($($x:expr),*$(,)*) => {{
     vec
 }}}
 
+pub const TITLE_LINEFEEDS: usize = 3;
+pub const STATUS_LINEFEEDS: usize = 1;
+
 fn main() {
     let opts = parse_args();
 
@@ -164,6 +168,7 @@ fn main() {
         r1
     };
 
+    let tick_num_width = (TICK_WRAP as f32).log10() as usize + 1;
     let target_frame_time_ms = 1000 / fps;
     let frame_time = Duration::from_millis(target_frame_time_ms);
     let error_refresh_time = Duration::from_millis(500);
@@ -175,6 +180,8 @@ fn main() {
     let mut city_state = City::new(width, height, step, &rng, bg_color, &layers);
     let mut skip_ticks = layers.iter().map(|d| d.speed).max().unwrap_or(0) * width as u32;
 
+    let seed_str = format!("seed: {}", seed);
+
     let mut reset_console = true;
 
     while reset_console {
@@ -184,8 +191,8 @@ fn main() {
 
         console::setup_console();
         info_center("oO0OoO0OoO0Oo CiTY oO0OoO0OoO0Oo", width);
+        info_center(&seed_str, width);
         println!();
-        println!("seed: {}", seed);
 
         console::prepare_canvas(height);
         let out = std::io::stdout();
@@ -240,8 +247,11 @@ fn main() {
             let diff_ms = diff_us / 1000;
             let diff_ms_fract = diff_us / 10 - diff_ms;
 
-            print!("\x1b[0m\x1b[2Kreal frametime: {: >4}.{:0<2}ms / target rametime: {: >4}ms / tick: {: >4}us / real fps: {: >4}",
-                   diff_ms, diff_ms_fract, target_frame_time_ms, diff_tick.as_micros(), real_fps);
+            write!(out_lock, "\r\x1b[0m\x1b[0Jreal frametime: {: >4}.{:0<2}ms / target rametime: {: >4}ms\n\
+                                              tick: {: >tnw$} / tick time: {: >4}us / real fps: {: >4}",
+                   diff_ms, diff_ms_fract, target_frame_time_ms,
+                   city_state.get_tick(), diff_tick.as_micros(), real_fps, tnw = tick_num_width).unwrap();
+            out_lock.flush().unwrap();
 
             r_times.push_back(diff.as_millis() as u32);
             sleep(sleep_d);

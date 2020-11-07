@@ -3,13 +3,14 @@ use std::io::Write as ioWrite;
 use std::io::StdoutLock;
 
 use crate::city::City;
+use crate::{STATUS_LINEFEEDS, TITLE_LINEFEEDS};
 
 pub const SIZE_DEFAULT_W: usize = 150;
 pub const SIZE_DEFAULT_H: usize = 40;
 pub const SIZE_MIN_W: usize = 50;
 pub const SIZE_MIN_H: usize = 10;
 pub const SIZE_AUTO_PAD_W: usize = 0;
-pub const SIZE_AUTO_PAD_H: usize = 5;
+pub const SIZE_AUTO_PAD_H: usize = STATUS_LINEFEEDS + TITLE_LINEFEEDS + 1;
 
 pub fn get_term_size() -> (usize, usize) {
     match term_size::dimensions() {
@@ -29,8 +30,7 @@ pub fn setup_console() {
 }
 
 pub fn prepare_canvas(height: usize) {
-    println!("info line");
-    for _ in 0..height {
+    for _ in 0..height + STATUS_LINEFEEDS {
         println!();
     }
 }
@@ -44,14 +44,12 @@ pub fn draw_to_console(c: &City, buf: &mut String, out: &mut StdoutLock) {
     buf.clear();
     let (_, height) = c.get_size();
 
-    // move up to beginning, clear first (info) line and clear styles
-    write!(buf, "\x1b[0m\x1b[{}A\x1b[2K\r", height + 1).unwrap();
-    write!(buf, "tick: {}", c.get_tick()).unwrap();
+    // move up to beginning and clear styles
+    write!(buf, "\x1b[0m\x1b[{}A\r", height + STATUS_LINEFEEDS).unwrap();
 
     let canvas = c.get_canvas();
     let mut last_clr = 0;
     for row in canvas.row_iter() {
-        buf.push('\n');
         for &color in row {
             if last_clr != color {
                 last_clr = color;
@@ -60,7 +58,8 @@ pub fn draw_to_console(c: &City, buf: &mut String, out: &mut StdoutLock) {
                 buf.push(' ');
             }
         }
+        buf.push('\n');
     }
 
-    writeln!(out, "{}", buf).unwrap();
+    out.write_all(buf.as_bytes()).unwrap()
 }
