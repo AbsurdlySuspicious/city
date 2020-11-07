@@ -49,10 +49,16 @@ pub fn draw_to_console(c: &City, buf: &mut String, out: &mut StdoutLock) {
     write!(buf, "tick: {}", c.get_tick()).unwrap();
 
     let canvas = c.get_canvas();
+    let mut last_clr = 0;
     for row in canvas.row_iter() {
         buf.push('\n');
         for &color in row {
-            write!(buf, "\x1b[{}m ", color).unwrap();
+            if last_clr != color {
+                last_clr = color;
+                write!(buf, "\x1b[{}m ", color).unwrap();
+            } else {
+                buf.push(' ');
+            }
         }
     }
 
