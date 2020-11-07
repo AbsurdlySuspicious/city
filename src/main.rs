@@ -247,10 +247,10 @@ fn main() {
             let diff_ms = diff_us / 1000;
             let diff_ms_fract = diff_us / 10 - diff_ms;
 
-            write!(out_lock, "\r\x1b[0m\x1b[0Jreal frametime: {: >4}.{:0<2}ms / target rametime: {: >4}ms\n\
-                                              tick: {: >tnw$} / tick time: {: >4}us / real fps: {: >4}",
-                   diff_ms, diff_ms_fract, target_frame_time_ms,
-                   city_state.get_tick(), diff_tick.as_micros(), real_fps, tnw = tick_num_width).unwrap();
+            write!(out_lock, "\r\x1b[0m\x1b[0Jtick: {: >tnw$} / tick time: {: >4}us / real fps: {: >4}\n\
+                                              real frametime: {: >4}.{:0<2}ms / target rametime: {: >4}ms",
+                   city_state.get_tick(), diff_tick.as_micros(), real_fps,
+                   diff_ms, diff_ms_fract, target_frame_time_ms, tnw = tick_num_width).unwrap();
             out_lock.flush().unwrap();
 
             r_times.push_back(diff.as_millis() as u32);
