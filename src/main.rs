@@ -240,8 +240,8 @@ fn main() {
             let diff_ms = diff_us / 1000;
             let diff_ms_fract = diff_us / 10 - diff_ms;
 
-            print!("\x1b[0m\x1b[2Krender time: {: >4}.{:0<2}ms / tick: {: >4}us / fps: {: >4}",
-                   diff_ms, diff_ms_fract, diff_tick.as_micros(), real_fps);
+            print!("\x1b[0m\x1b[2Kreal frametime: {: >4}.{:0<2}ms / target rametime: {: >4}ms / tick: {: >4}us / real fps: {: >4}",
+                   diff_ms, diff_ms_fract, target_frame_time_ms, diff_tick.as_micros(), real_fps);
 
             r_times.push_back(diff.as_millis() as u32);
             sleep(sleep_d);
